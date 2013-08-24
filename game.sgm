@@ -1,0 +1,6 @@
+author=Andrew Helenius
+description=A game made for the Ludum Dare Solo Contest, #27.
+name=LD27_Game
+screen_height=240
+screen_width=320
+script=game.js
