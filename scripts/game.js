@@ -9,6 +9,7 @@ RequireScript("resources.js");
 RequireScript("colorz.js");
 RequireScript("itenns.js");
 RequireScript("analogue.js");
+RequireScript("tween.js");
 
 const SW = GetScreenWidth();
 const SH = GetScreenHeight();
@@ -29,7 +30,6 @@ function game()
 {
 	CreatePerson("player", "player.rss", false);
 	SetPersonSpeed("player", 2);
-	IgnorePersonObstructions("player", true);
 	AttachCamera("player");
 	SetUpdateScript("Update();");
 	SetRenderScript("Render();");
@@ -47,6 +47,7 @@ function Update()
 function Render()
 {
 	gamestuff.renderHP();
+	gamestuff.renderTexts();
 }
 
 function TileMover()
@@ -107,6 +108,25 @@ function GameStuff() {
 	this.people = [];
 	this.weapon = null;
 	this.shield = null;
+	this.texts = [];
+	this.bitchTimer = GetTime();
+}
+
+GameStuff.prototype.addText = function(x, y, text) {
+	this.texts.push({x: x + 8 - Resources.fonts.font.getStringWidth(text)/2, y: y - 16, text: text, time: GetTime()});
+}
+
+GameStuff.prototype.renderTexts = function() {
+	for (var i = 0; i < this.texts.length; ++i) {
+		var item = this.texts[i];
+		if (item.time + 500 < GetTime()) {
+			this.texts.splice(i, 1);
+			i--;
+		}
+		else {
+			Resources.fonts.font.drawText(MapToScreenX(0, item.x), MapToScreenY(0, item.y), item.text);
+		}
+	}
 }
 
 GameStuff.prototype.sellLoot = function()
@@ -126,9 +146,10 @@ GameStuff.prototype.renderHP = function() {
 	Resources.fonts.font.drawText(4, 4, this.secsLeft + "/" + this.maxSecs);
 	if (this.weapon) this.weapon.draw(0, 16);
 	if (this.shield) this.shield.draw(16, 16);
+	Resources.fonts.font.drawText(0, 32, this.texts.length);
 }
 
-GameStuff.prototype.updateHP = function() {
+GameStuff.prototype.updateHP = function() {	
 	if (this.hp < 0) {
 		this.hp = 0;
 		// ON LOSS
@@ -137,6 +158,53 @@ GameStuff.prototype.updateHP = function() {
 		this.hp -= 1/6;
 		this.secsLeft = Math.floor(this.hp / 10);
 	}
+	
+	if (this.bitchTimer + 1000 < GetTime()) {
+		if (this.secsLeft <= 1)
+			RandomText("player", "AHHH AHHH!", "Shit Shit Shit", "FUUUU");
+		else if (this.secsLeft <= 3)
+			this.addText(GetPersonX("player"), GetPersonY("player"), "I'm dieing!");
+		else if (this.secsLeft <= 5) {
+			RandomText("player", "Holy crappp!", "OMG Help!");
+		}
+		this.bitchTimer = GetTime();
+	}
 }
 
 var gamestuff = new GameStuff();
+
+function RandomText(name)
+{
+	gamestuff.addText(GetPersonX(name), GetPersonY(name), arguments[1 + Math.floor(Math.random() * (arguments.length - 1))]);
+}
+
+function DrawWindow(text)
+{
+	var done = false;
+	
+	var height = new Tween();
+	height.setup(0, 48, 250);
+	
+	function Draw() {
+		height.update();
+		RenderMap();
+		Resources.windowstyles.window.drawWindow(16, SH-64 + (24 - height.value/2), SW-32, height.value);
+		Resources.fonts.font.drawTextBox(16, SH-64 + (24 - height.value/2), SW-32, height.value, 0, text);
+		
+		FlipScreen();
+	}
+	
+	while (!done) {
+		Draw();
+		
+		while (AreKeysLeft()) {
+			if (GetKey() == KEY_SPACE) done = true;
+		}
+	}
+	
+	height.setup(48, 0, 250);
+	
+	while (!height.isFinished()) {
+		Draw();
+	}
+}

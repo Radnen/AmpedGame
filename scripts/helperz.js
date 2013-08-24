@@ -83,6 +83,16 @@ function TryEquipShield(name)
 	TryEquip(name, "shield", "def");
 }
 
+// TODO: show text emitters:
+function TextDude(text)
+{
+	return {
+		talk: function() {
+			DrawWindow(text);
+		},
+	}
+}
+
 function SwordEquip(frame, name)
 {
 	return {
