@@ -1,15 +1,18 @@
 /**
 * Script: game.js
 * Written by: Andrew Helenius
-* Updated: 8/24/2013
+* Updated: 8/25/2013
 **/
 
+RequireScript("json2.js");
 RequireScript("helperz.js");
 RequireScript("resources.js");
 RequireScript("colorz.js");
+RequireScript("monsters.js");
 RequireScript("itenns.js");
 RequireScript("analogue.js");
 RequireScript("tween.js");
+RequireScript("gamestuff.js");
 
 const SW = GetScreenWidth();
 const SH = GetScreenHeight();
@@ -21,7 +24,7 @@ const SH = GetScreenHeight();
 // Quick-Equip items can enhance your character.
 // Rouge-like presentation.
 
-// AMPED ON HEALTH POTIONS
+// AMP'D ON/FOR HEALTH POTIONS
 
 Resources.loadAll();
 analogue.init();
@@ -41,13 +44,24 @@ function Update()
 {
 	TileMover();
 	gamestuff.updateHP();
+	gamestuff.updateTalkers();
+	gamestuff.updateMonsters();
+	
+	while (AreKeysLeft()) {
+		switch (GetKey()) {
+			case KEY_SPACE:
+				Activate();
+				CreateAnimation(GetTileX("player") + gamestuff.dx, GetTileY("player") + gamestuff.dy, "anims.rss", "sword");
+			break;
+		}
+	}
 }
 
 // all render logic goes here:
 function Render()
 {
-	gamestuff.renderHP();
 	gamestuff.renderTexts();
+	gamestuff.renderUI();
 }
 
 function TileMover()
@@ -55,23 +69,34 @@ function TileMover()
 	if (!IsCommandQueueEmpty("player")) return;
 	
 	var command = null;
-	if (IsKeyPressed(KEY_UP)) command = COMMAND_MOVE_NORTH;
-	if (IsKeyPressed(KEY_DOWN)) command = COMMAND_MOVE_SOUTH;
+	
+	if (IsKeyPressed(KEY_UP)) { command = COMMAND_MOVE_NORTH; gamestuff.dx = 0; gamestuff.dy = -1; }
+	if (IsKeyPressed(KEY_DOWN)) { command = COMMAND_MOVE_SOUTH; gamestuff.dx = 0; gamestuff.dy = 1; }
 	
 	if (IsKeyPressed(KEY_LEFT)) {
 		command = COMMAND_MOVE_WEST;
 		QueuePersonCommand("player", COMMAND_FACE_WEST, true);
+		gamestuff.dy = 0;
+		gamestuff.dx = -1;
 	}
 
 	if (IsKeyPressed(KEY_RIGHT)) {
 		command = COMMAND_MOVE_EAST;
 		QueuePersonCommand("player", COMMAND_FACE_EAST, true);
+		gamestuff.dy = 0;
+		gamestuff.dx = 1;
 	}
 
-	if (command != null) {
+	if (command != null && !IsObstructed("player", command)) {
 		Queue("player", command, 8);
 		QueuePersonScript("player", "TalkUpdater();", true);
 	}
+}
+
+function Activate()
+{
+	var p = GetPersonAt(GetTileX("player") + gamestuff.dx, GetTileY("player") + gamestuff.dy);
+	if (p) { CallPersonScript(p, SCRIPT_ON_ACTIVATE_TALK); }
 }
 
 function GetTileX(name)
@@ -84,94 +109,35 @@ function GetTileY(name)
 	return Math.floor(GetPersonY(name)/16);
 }
 
+function GetPersonAt(x, y)
+{
+	var i = GetIndexOf(gamestuff.people, function(person) {
+		var px = GetTileX(person);
+		var py = GetTileY(person);
+		return (px == x && py == y);
+	});
+	if (i >= 0) return gamestuff.people[i];
+	return null;
+}
+
 // check to see if we 'activated' an entity right under foot
 function TalkUpdater()
 {
 	var px = GetTileX("player");
 	var py = GetTileY("player");
 	var found = null;
+	
 	Foreach(gamestuff.people, function(name) {
+		if (name == "player") return;
 		var x = GetTileX(name);
 		var y = GetTileY(name);
 		if (x == px && y == py) found = name;
 	});
-	if (found) CallPersonScript(found, SCRIPT_ON_ACTIVATE_TALK);
-}
-
-function GameStuff() {
-	this.hp = 100;
-	this.maxhp = 100;
-	this.secsLeft = 10;
-	this.maxSecs = 10;
-	this.items = [];
-	this.coins = 0;
-	this.people = [];
-	this.weapon = null;
-	this.shield = null;
-	this.texts = [];
-	this.bitchTimer = GetTime();
-}
-
-GameStuff.prototype.addText = function(x, y, text) {
-	this.texts.push({x: x + 8 - Resources.fonts.font.getStringWidth(text)/2, y: y - 16, text: text, time: GetTime()});
-}
-
-GameStuff.prototype.renderTexts = function() {
-	for (var i = 0; i < this.texts.length; ++i) {
-		var item = this.texts[i];
-		if (item.time + 500 < GetTime()) {
-			this.texts.splice(i, 1);
-			i--;
-		}
-		else {
-			Resources.fonts.font.drawText(MapToScreenX(0, item.x), MapToScreenY(0, item.y), item.text);
-		}
-	}
-}
-
-GameStuff.prototype.sellLoot = function()
-{
-	Foreach(this.items, function(item) { this.coins += item.value; }, this);
-	this.items = [];
-}
-
-GameStuff.prototype.heal = function(amount)
-{
-	this.hp += amount;
-	if (this.hp > this.maxhp) this.hp = this.maxhp;
-}
-
-GameStuff.prototype.renderHP = function() {
-	Rectangle(0, 0, SW * this.hp / this.maxhp, 16, Colors.red);
-	Resources.fonts.font.drawText(4, 4, this.secsLeft + "/" + this.maxSecs);
-	if (this.weapon) this.weapon.draw(0, 16);
-	if (this.shield) this.shield.draw(16, 16);
-	Resources.fonts.font.drawText(0, 32, this.texts.length);
-}
-
-GameStuff.prototype.updateHP = function() {	
-	if (this.hp < 0) {
-		this.hp = 0;
-		// ON LOSS
-	}
-	else if (this.hp > 0) {
-		this.hp -= 1/6;
-		this.secsLeft = Math.floor(this.hp / 10);
-	}
 	
-	if (this.bitchTimer + 1000 < GetTime()) {
-		if (this.secsLeft <= 1)
-			RandomText("player", "AHHH AHHH!", "Shit Shit Shit", "FUUUU");
-		else if (this.secsLeft <= 3)
-			this.addText(GetPersonX("player"), GetPersonY("player"), "I'm dieing!");
-		else if (this.secsLeft <= 5) {
-			RandomText("player", "Holy crappp!", "OMG Help!");
-		}
-		this.bitchTimer = GetTime();
+	if (found) {
+		CallPersonScript(found, SCRIPT_ON_ACTIVATE_TALK);
 	}
 }
-
-var gamestuff = new GameStuff();
 
 function RandomText(name)
 {
@@ -208,3 +174,4 @@ function DrawWindow(text)
 		Draw();
 	}
 }
+

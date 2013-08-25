@@ -1,7 +1,7 @@
 /**
 * Script: analogue.js
 * Written by: Andrew Helenius
-* Updated: 8/23/2013
+* Updated: 8/24/2013
 **/
 
 /*

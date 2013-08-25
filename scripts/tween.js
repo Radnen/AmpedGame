@@ -1,7 +1,7 @@
 /**
 * Script: tween.js
 * Written by: Radnen
-* Updated: 8/24/2013
+* Updated: 6/30/2013
 **/
 
 /**

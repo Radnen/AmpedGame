@@ -1,8 +1,10 @@
 /**
 * Script: helperz.js
 * Written by: Andrew Helenius
-* Updated: 8/24/2013
+* Updated: 8/25/2013
 **/
+
+const PI = 3.1415926535;
 
 function Repeat(func, times)
 {
@@ -37,6 +39,77 @@ function Queue(name, command, times)
 	Repeat(function() {
 		QueuePersonCommand(name, command, false);
 	}, times);
+}
+
+// Returns an angle between 0 and 2PI, between two entities
+function GetAngleBetweenEntities(person1, person2)
+{
+	var dx = GetPersonX(person2)-GetPersonX(person1);
+	var dy = GetPersonY(person2)-GetPersonY(person1);
+	
+	return Math.atan2(dy, dx)+PI;
+}
+
+function GetAngleDirection(person1, person2)
+{
+	var angle = GetAngleBetweenEntities(person1, person2);
+	
+	if (angle > 5*PI/4 && angle < 7*PI/4) return "north";
+	else if (angle > 3*PI/4 && angle < 5*PI/4) return "west";
+	else if (angle > PI/4 && angle < 3*PI/4) return "south";
+	else return "east";
+}
+
+// This is used to check if a given person can move
+// towards a given direction.
+function IsObstructed(name, command)
+{
+	var H = 0, W = 0;
+	var X = GetPersonX(name);
+	var Y = GetPersonY(name);
+	
+	switch(command) {
+		case COMMAND_MOVE_NORTH: H = -16; break;
+		case COMMAND_MOVE_SOUTH: H =  16; break;
+		case COMMAND_MOVE_EAST:  W =  16; break;
+		case COMMAND_MOVE_WEST:  W = -16; break;
+		default: return false; break;
+	}
+
+	if (IsPersonObstructed(name, X+W, Y+H)) return true;
+	if (IsPersonObstructed(name, X+(W>>1), Y+(H>>1))) return true;
+	return false; // just in case
+}
+
+var g_num = 0;
+function CreateAnimation(tilex, tiley, ss, dir) {
+	var name = "effect" + g_num;
+	CreatePerson(name, ss, true);
+	SetPersonX(name, tilex*16+7);
+	SetPersonY(name, tiley*16+7);
+	SetPersonDirection(name, dir);
+	SetPersonLayer(name, 2);
+	Queue(name, COMMAND_ANIMATE, 15);
+	QueuePersonScript(name, "DestroyPerson(GetCurrentPerson());", true);
+}
+
+var g_items = 0;
+function CreateItem(x, y, item)
+{
+	var name = "item" + g_items;
+	if (typeof item == "number") {
+		CreatePerson(name, "coins.rss", true);
+		SetPersonScript(name, SCRIPT_ON_ACTIVATE_TALK, "gamestuff.coins += " + item + "; DestroyPerson('" + name + "');");
+	}
+	else {
+		if (item == "hp") {
+			CreatePerson(name, "health.rss", true);
+			SetPersonScript(name, SCRIPT_ON_ACTIVATE_TALK, "gamestuff.heal(50); DestroyPerson('" + name + "');");
+		}
+	}
+	SetPersonX(name, x);
+	SetPersonY(name, y);
+	SetPersonLayer(name, 0);
 }
 
 function Contains(array, func, parent)
@@ -83,29 +156,78 @@ function TryEquipShield(name)
 	TryEquip(name, "shield", "def");
 }
 
-// TODO: show text emitters:
+function CheckDead(name)
+{
+	if (analogue.person(name).dead)
+		_DestroyPerson(name);
+}
+
 function TextDude(text)
 {
 	return {
-		talk: function() {
-			DrawWindow(text);
+		text: text,
+		create: function() {
+			gamestuff.addTalker(GetCurrentPerson(), this.text);
 		},
 	}
 }
 
-function SwordEquip(frame, name)
+function MakeKey()
 {
 	return {
-		item: name,
-		
-		create: function() {
-			SetPersonFrame(GetCameraPerson(), frame);
-		},
-		
+		dead: false,
+		create: function() { CheckDead(GetCurrentPerson()); },
 		talk: function() {
-			TryEquipWeapon(this.item);
+			gamestuff.keys.push(this);
 			DestroyPerson(GetCurrentPerson());
+		}
+	}
+}
+
+function MakeBush()
+{
+	return {
+		talk: function() {
+			if (gamestuff.weapon == null) {
+				gamestuff.addText(GetPersonX("player"), GetPersonY("player"), "Can't cut it.");
+				return;
+			}
+			if (gamestuff.weapon != "bow")
+			{
+				DestroyPerson(GetCurrentPerson());
+				gamestuff.addText(GetPersonX("player"), GetPersonY("player"), "Swoosh");
+			}
 		},
+	}
+}
+
+function MakeDoor()
+{
+	return {
+		dead: false,
+		create: function() { CheckDead(GetCurrentPerson()); },
+		talk: function() {
+			if (gamestuff.tryKey()) {
+				this.dead = true;
+				DestroyPerson(GetCurrentPerson());
+				gamestuff.addText(GetPersonX("player"), GetPersonY("player"), "Unlocked!");
+			}
+			else {
+				gamestuff.addText(GetPersonX("player"), GetPersonY("player"), "No keys!");
+			}
+		},
+	}
+}
+
+function MakeSaveStone()
+{
+	return {
+		talk: function() {
+			var name = GetCurrentPerson();
+			CreateAnimation(GetTileX(name), GetTileY(name), "anims.rss", "sparkle");
+			gamestuff.addText(GetPersonX("player"), GetPersonY("player"), "Saved, at last!");
+			gamestuff.quicksave();
+		}
 	}
 }
 
@@ -122,6 +244,8 @@ function HealthPotion()
 function LifePotion()
 {
 	return {
+		dead: false,
+		create: function() { CheckDead(GetCurrentPerson()); },
 		talk: function() {
 			gamestuff.lives++;
 			DestroyPerson(GetCameraPerson());
@@ -139,18 +263,76 @@ DestroyPerson = function(name)
 	}
 }
 
+var _CreatePerson = CreatePerson;
+CreatePerson = function(name, ss, die) {
+	_CreatePerson(name, ss, die);
+	gamestuff.people.push(name);
+}
+
+function CreateMonster(type)
+{
+	return {
+		type: type,
+		
+		create: function() {
+			gamestuff.addMonster(GetCurrentPerson(), Monsters[this.type]);
+		},
+		
+		talk: function() {
+			if (gamestuff.hurtMonster(GetCurrentPerson())) {
+				DestroyPerson(GetCurrentPerson());
+			}
+		}
+	}
+}
+
+function Alert(text)
+{
+	var done = false;
+	while (!done) {
+		Rectangle(0, 0, SW, SH, Colors.black);
+		Resources.fonts.font.drawTextBox(0, 0, SW, SH, 0, text);
+		FlipScreen();
+		while (AreKeysLeft()) {
+			if (GetKey() == KEY_ENTER) done = true;
+		}
+	}
+}
+
+function SwordEquip(frame, name)
+{
+	return {
+		item: name,
+		dead: false,
+		
+		create: function() {
+			SetPersonFrame(GetCurrentPerson(), frame);
+			CheckDead(GetCurrentPerson());
+		},
+		
+		talk: function() {
+			TryEquipWeapon(this.item);
+			DestroyPerson(GetCurrentPerson());
+			this.dead = true;
+		},
+	}
+}
+
 function ShieldEquip(frame, name)
 {
 	return {
 		item: name,
+		dead: false,
 		
 		create: function() {
-			SetPersonFrame(GetCameraPerson(), frame);
+			SetPersonFrame(GetCurrentPerson(), frame);
+			CheckDead(GetCurrentPerson());
 		},
 		
 		talk: function() {
 			TryEquipShield(name);
 			DestroyPerson(GetCurrentPerson());
+			this.dead = true;
 		},
 	}
 }
