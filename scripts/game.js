@@ -13,6 +13,7 @@ RequireScript("itenns.js");
 RequireScript("analogue.js");
 RequireScript("tween.js");
 RequireScript("gamestuff.js");
+RequireScript("menu.js");
 
 const SW = GetScreenWidth();
 const SH = GetScreenHeight();
@@ -31,17 +32,62 @@ analogue.init();
 
 function game()
 {
+	var h = 24;
+	var menu = new Menu();
+	menu.addItem("New Game", function() {
+		StartEngine("main.rmp");
+	});
+	
+	if (FileExists("~/other", "quicksave.sav")) {
+		menu.addItem("Continue", function() {
+			gamestuff.quickload();
+		});
+		h += 12;
+	}
+	
+	menu.addItem("Exit", Exit);
+	
+	menu.preRender = function() {
+		Resources.images.title.blit(0, 0);
+	}
+	
+	menu.execute(SW/2-48, SH/2, 96, h);
+}
+
+// starts the map engine with default player, and runs an init callback.
+function StartEngine(map, init)
+{
 	CreatePerson("player", "player.rss", false);
 	SetPersonSpeed("player", 2);
 	AttachCamera("player");
+	BindKey(KEY_ESCAPE, '', '');
+	if (init) init();
 	SetUpdateScript("Update();");
 	SetRenderScript("Render();");
-	MapEngine("main.rmp", 60);
+	MapEngine(map, 60);
 }
 
 // all update logic goes here:
+g_reset = false;
+
+var Runners = [];
+
+function AddRunner(func, parent)
+{
+	Runners.push({f: func, p: parent});
+}
+
 function Update()
 {
+	if (g_reset) {
+		SetPersonX("player", analogue.world.px);
+		SetPersonY("player", analogue.world.py);
+		g_reset = false;
+	}
+	
+	// magic.
+	if (Runners.length > 0) { var v = Runners.pop(); v.f.call(v.p); }
+	
 	TileMover();
 	gamestuff.updateHP();
 	gamestuff.updateTalkers();
@@ -50,8 +96,20 @@ function Update()
 	while (AreKeysLeft()) {
 		switch (GetKey()) {
 			case KEY_SPACE:
+				if (gamestuff.weapon) {
+					CreateAnimation(GetTileX("player") + gamestuff.dx, GetTileY("player") + gamestuff.dy, "anims.rss", "sword");
+				}
 				Activate();
-				CreateAnimation(GetTileX("player") + gamestuff.dx, GetTileY("player") + gamestuff.dy, "anims.rss", "sword");
+			break;
+			case KEY_ESCAPE:
+				var menu = new Menu();
+				menu.addItem("Continue", function(){});
+				menu.addItem("Quit", function() {
+					ExitMapEngine();
+					DestroyPerson("player");
+				});
+				
+				menu.execute(SW/2-48, SH/2-24, 96, 24);
 			break;
 		}
 	}

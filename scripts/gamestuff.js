@@ -184,7 +184,6 @@ GameStuff.prototype.renderUI = function() {
 	Resources.fonts.font.drawText(4, 4, this.secsLeft + "/" + this.maxSecs);
 	if (this.weapon) this.weapon.draw(0, 16);
 	if (this.shield) this.shield.draw(16, 16);
-	Resources.fonts.font.drawText(0, 32, this.people.length);
 }
 
 GameStuff.prototype.addGib = function(x, y, base) {
@@ -216,7 +215,7 @@ GameStuff.prototype.updateHP = function() {
 	}
 }
 
-GameStuff.prototype.quicksave = function(tofile) {
+GameStuff.prototype.quicksave = function() {
 	var w    = analogue.world;
 	w.coins  = this.coins;
 	if (this.weapon)
@@ -224,7 +223,6 @@ GameStuff.prototype.quicksave = function(tofile) {
 	if (this.shield)
 		w.shield = this.shield.name;
 	w.items    = this.items;
-	w.hp       = this.hp;
 	w.px       = GetPersonX("player");
 	w.py       = GetPersonY("player");
 	w.worldmap = GetCurrentMap();
@@ -234,31 +232,39 @@ GameStuff.prototype.quicksave = function(tofile) {
 	file.close();
 }
 
-GameStuff.prototype.quickload = function(fromfile) {
+GameStuff.prototype.quickload = function() {
 	var file = OpenRawFile("quicksave.sav");
 	var w    = JSON.parse(CreateStringFromByteArray(file.read(file.getSize())));
 	analogue.mergeWorld(w);
 	file.close();
-	this.reset();
+	this.reset(true);
 	this.keys     = [];
 	this.items    = w.items;
-	this.hp       = w.hp;
-	this.secsLeft = this.hp / 10;
+	this.hp       = 100; // full heal here
+	this.secsLeft = 10;
 	if (w.weapon) this.weapon = Items[w.weapon];
 	else this.weapon = null;
 	if (w.shield) this.shield = Items[w.shield];
 	else this.shield = null;
-	ChangeMap(w.worldmap);
-	SetPersonX("player", w.px);
-	SetPersonY("player", w.py);
+	if (IsMapEngineRunning()) {
+		ChangeMap(w.worldmap);
+		SetPersonX("player", w.px);
+		SetPersonY("player", w.py);
+	}
+	else {
+		StartEngine(w.worldmap, function() {
+			g_reset = true;
+		});
+	}
 }
 
-GameStuff.prototype.reset = function()
+GameStuff.prototype.reset = function(people, gib)
 {
-	this.people   = GetPersonList();
+	if (people) this.people   = GetPersonList();
 	this.talkers  = [];
 	this.monsters = [];
 	this.texts    = [];
+	if (gib) this.gib = [];
 }
 
 var gamestuff = new GameStuff();

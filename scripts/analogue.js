@@ -1,7 +1,7 @@
 /**
 * Script: analogue.js
 * Written by: Andrew Helenius
-* Updated: 8/24/2013
+* Updated: 8/25/2013
 **/
 
 /*
@@ -48,6 +48,7 @@ var analogue = (function() {
 	var worlds = [CreateWorld()];
 	var cur_world = 0;
 	var world = worlds[cur_world];
+	var enter = null;
 	
 	/* Script Layer */
 	

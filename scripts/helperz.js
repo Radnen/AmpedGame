@@ -41,6 +41,11 @@ function Queue(name, command, times)
 	}, times);
 }
 
+function FileExists(path, filename) {
+	if (typeof path == "string") path = GetFileList(path);
+	return Contains(path, function(i) { return i == filename; });
+}
+
 // Returns an angle between 0 and 2PI, between two entities
 function GetAngleBetweenEntities(person1, person2)
 {
@@ -137,12 +142,12 @@ function TryEquip(name, type, stat)
 		return;
 	}
 	
-	if (Compare(item, gamestuff[type], stat) < 0) {
+	if (Compare(gamestuff[type], item, stat) < 0) {
 		gamestuff.items.push(gamestuff[type].name);
 		gamestuff[type] = item;
 	}
 	else {
-		gamestuff.items.push(item.name);
+		gamestuff.items.push(name);
 	}
 }
 
@@ -334,5 +339,24 @@ function ShieldEquip(frame, name)
 			DestroyPerson(GetCurrentPerson());
 			this.dead = true;
 		},
+	}
+}
+
+function Teleport(x, y, map)
+{
+	return {
+		x: x,
+		y: y,
+		map: map,
+		talk: function () {
+			AddRunner(function() {
+				if (this.map) {
+					gamestuff.reset(false, true);
+					ChangeMap(this.map);
+				}
+				SetPersonX("player", this.x*16+7);
+				SetPersonY("player", this.y*16+7);
+			}, this);
+		}
 	}
 }
