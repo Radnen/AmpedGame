@@ -1,7 +1,10 @@
 Amped for Health Potions
 ========================
 
-A game made for Ludum Dare 27.
+A game made for Ludum Dare's 48 hour compo #27.
+
+Check it out:
+http://www.ludumdare.com/compo/ludum-dare-27/?action=preview&uid=26346
 
 Theme:
 ======
@@ -20,7 +23,6 @@ Controls:
 =========
 
  - Arrow keys: movement
- - Hit enemies: bump into them.
- - Stores: run into doors*.
- 
-* The game pauses while you are in a store or in a menu.
+ - Spacebar: action
+
+(The game pauses while you are in a menu or textbox.)

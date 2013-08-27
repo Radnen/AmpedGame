@@ -125,6 +125,11 @@ function Render()
 function TileMover()
 {
 	if (!IsCommandQueueEmpty("player")) return;
+
+	if (GetPersonX("player") % 16 != 0 || GetPersonY("player") % 16 != 0) {
+		SetPersonX("player", GetTileX("player")*16+7);
+		SetPersonY("player", GetTileY("player")*16+7);
+	}
 	
 	var command = null;
 	
