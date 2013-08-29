@@ -9,7 +9,7 @@
 		
 		if (!this.intro) {
 			DrawWindow("There was a time of great strife. But people prevailed and learned to overcome their weaknesses.");
-			DrawWindow("Well, exepect one kid. He's got ten seconds to live.");
+			DrawWindow("Well, except one kid. He's got ten seconds to live.");
 			this.intro = true;
 			gamestuff.quicksave();
 		}

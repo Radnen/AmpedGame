@@ -9,7 +9,7 @@ RequireScript("helperz.js");
 RequireScript("resources.js");
 RequireScript("colorz.js");
 RequireScript("monsters.js");
-RequireScript("itenns.js");
+RequireScript("items.js");
 RequireScript("analogue.js");
 RequireScript("tween.js");
 RequireScript("gamestuff.js");
